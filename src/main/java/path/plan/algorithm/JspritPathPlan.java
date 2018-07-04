@@ -17,6 +17,7 @@ import domain.Dada;
 import domain.Location;
 import domain.Order;
 import domain.Path;
+import lombok.Data;
 
 import java.util.*;
 
@@ -26,9 +27,13 @@ import static com.dada.util.CommonUtil.getDistance;
 /**
  * 基于Jsprit进行路径规划的工具类
  */
+@Data
 public class JspritPathPlan implements Algorithm {
-
-
+    private String name;
+    public JspritPathPlan(){
+        String[] algorithmName = JspritPathPlan.class.getName().split("\\.");
+        name = algorithmName[algorithmName.length - 1];
+    }
     public Path planPath(Dada dada, double[][] matrix) {
         return planPath(dada, false, matrix);
     }

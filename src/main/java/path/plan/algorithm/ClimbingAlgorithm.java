@@ -3,6 +3,7 @@ package path.plan.algorithm;
 import domain.Dada;
 import domain.Location;
 import domain.Path;
+import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,14 +12,26 @@ import java.util.Map;
 
 import static com.dada.util.CommonUtil.*;
 
+@Data
 public class ClimbingAlgorithm implements Algorithm {
-    private static final double ITERATION_TIMES = 300;
-    private static final double CANDIDATE_CHROMOSOME_COUNT = 10;
+    private double iterationTimes = 300;
+    private double candidateChromosomeCount = 10;
+    public List<int[]> candidateChromosome;
+    private String name;
+    public ClimbingAlgorithm() {
+        String[] algorithmName = ClimbingAlgorithm.class.getName().split("\\.");
+        name = algorithmName[algorithmName.length - 1];
+    }
+
+    public ClimbingAlgorithm(double iterationTimes, double candidateChromosomeCount) {
+        this.iterationTimes = iterationTimes;
+        this.candidateChromosomeCount = candidateChromosomeCount;
+    }
 
     public Path planPath(Dada dada, double[][] distanceMatrix) {
+        candidateChromosome = new ArrayList<>();
         List<Location> allLocations = getAllLocations(dada);
-        List<int[]> candidateChromosome = new ArrayList<>();
-        for (int i = 0; i < CANDIDATE_CHROMOSOME_COUNT; i++) {
+        for (int i = 0; i < candidateChromosomeCount; i++) {
             int[] chromosome = initChromosome(allLocations.size());
             shuffleChromosome(chromosome);
             candidateChromosome.add(chromosome);
@@ -48,7 +61,7 @@ public class ClimbingAlgorithm implements Algorithm {
         for (int k = 1; k < chromosome.length; k++) {
             marker.put(chromosome[k], k);
         }
-        for (int i = 0; i < ITERATION_TIMES; i++) {
+        for (int i = 0; i < iterationTimes; i++) {
             int switchIndex1 = -1, switchIndex2 = -1;
             // 向下爬山
             for (int m = 1; m < chromosome.length - 1; m++) {

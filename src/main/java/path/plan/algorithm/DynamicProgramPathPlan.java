@@ -4,13 +4,14 @@ import domain.Dada;
 import domain.Location;
 import domain.Order;
 import domain.Path;
+import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
-
+@Data
 public class DynamicProgramPathPlan implements Algorithm{
 
-
+    private String name;
     private final static int MAX_ORDER_COUNT = 19;
     private static int[] power3 = new int[MAX_ORDER_COUNT];
 
@@ -19,6 +20,11 @@ public class DynamicProgramPathPlan implements Algorithm{
         for (int i = 1; i < MAX_ORDER_COUNT; i++) {
             power3[i] = power3[i - 1] * 3;
         }
+    }
+
+    public DynamicProgramPathPlan(){
+        String[] algorithmName = DynamicProgramPathPlan.class.getName().split("\\.");
+        name = algorithmName[algorithmName.length - 1];
     }
 
     public Path planPath(Dada dada, double[][] matrix) {

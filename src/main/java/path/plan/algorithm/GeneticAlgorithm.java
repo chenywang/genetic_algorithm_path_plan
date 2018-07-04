@@ -1,9 +1,10 @@
 package path.plan.algorithm;
 
+import com.dada.util.CommonUtil;
 import domain.Dada;
 import domain.Location;
 import domain.Path;
-import path.plan.algorithm.Algorithm;
+import lombok.Data;
 
 import java.util.*;
 
@@ -20,34 +21,56 @@ public class GeneticAlgorithm implements Algorithm {
     private final int GENERATIONS = 500;
     private final int END_TIME = (int) (GENERATIONS * 0.05);
 
-    private int currentSameBest = 0;
+    private String name;
+    private int currentSameBest;
     private double[][] distanceMatrix;
-    private List<Location> allLocations;
-    private List<int[]> candidate_chromosome;
+    private List<int[]> candidateChromosome;
 
     private int[] bestChromosome;
-    private double shortestDistance = Double.MAX_VALUE;
+    private double shortestDistance;
 
+    private Map<String,Integer> argument = new HashMap<>();
     public GeneticAlgorithm() {
-        this.candidate_chromosome = new ArrayList<>();
+        String[] algorithmName = GeneticAlgorithm.class.getName().split("\\.");
+        name = algorithmName[algorithmName.length - 1];
     }
 
-    public Path planPath(Dada dada, double[][] distanceMatrix){
-        this.allLocations = getAllLocations(dada);
+    public void setArgument(String key, Integer value){
+        this.argument.put(key, value);
+    }
+
+    public String getName(){
+        return name;
+    }
+
+    public void setName(String name){
+        this.name = name;
+    }
+
+    public GeneticAlgorithm(String name) {
+        this.name = name;
+    }
+
+    public Path planPath(Dada dada, double[][] distanceMatrix) {
+        List<Location> allLocations = getAllLocations(dada);
+        currentSameBest = 0;
+        shortestDistance = Double.MAX_VALUE;
+        candidateChromosome = new ArrayList<>();
+        bestChromosome = new int[allLocations.size()];
         this.distanceMatrix = distanceMatrix;
-        initPopulation();
+        initPopulation(allLocations.size());
+        int generation = 0;
         for (int i = 0; i < GENERATIONS; i++) {
             sortChromosomes();
-            if (isFinish()) break;
+            generation++;
+//            if (isFinish()) break;
             eliminatePhase();
             recombinePhase();
             mutatePhase();
 //            println("current best distance : " + shortestDistance);
         }
-        List<Location> route = new ArrayList<>();
-        for(int gene : bestChromosome){
-            route.add(allLocations.get(gene));
-        }
+//        println(generation);
+        List<Location> route = getRoute(bestChromosome, allLocations);
         return new Path(route, shortestDistance);
     }
 
@@ -64,35 +87,72 @@ public class GeneticAlgorithm implements Algorithm {
     }
 
 
-    private void initPopulation() {
-        int[] prototype = new int[allLocations.size()];
-        bestChromosome = new int[allLocations.size()];
-        for (int i = 0; i < allLocations.size(); i++) {
-            prototype[i] = i;
-        }
-
+    private void initPopulation(int size) {
         for (int i = 0; i < CANDIDATE_CHROMOSOME_COUNT; i++) {
-            shuffleChromosome(prototype);
-            int[] chromosome = new int[allLocations.size()];
-            copyChromosome(prototype, chromosome);
-            candidate_chromosome.add(chromosome);
+            int[] chromosome = initChromosome(size);
+            shuffleChromosome(chromosome);
+            candidateChromosome.add(chromosome);
         }
     }
 
-    private void fineChromosome(int[] chromosome){
-
+    private void initPopulationByClimbAlgorithm(Dada dada) {
+        bestChromosome = new int[dada.getOrders().size() * 2 + 1];
+        ClimbingAlgorithm ca = new ClimbingAlgorithm(30, CANDIDATE_CHROMOSOME_COUNT);
+        Path p = ca.planPath(dada, distanceMatrix);
+        candidateChromosome = ca.candidateChromosome;
     }
-
 
     private void eliminatePhase() {
-        int end = CANDIDATE_CHROMOSOME_COUNT;
-        while (candidate_chromosome.size() > end)
-            candidate_chromosome.remove(end - 1);
+        if (!argument.containsKey("eliminate") || argument.get("eliminate") == 0){
+            eliminatePhase1();
+        } else if(argument.get("eliminate") == 1){
+            recombinePhase2();
+        }else if (argument.get("eliminate") == 2){
+            recombinePhase3();
+        }else {
+            eliminatePhase1();
+        }
     }
 
+    private void eliminatePhase1() {
+        int end = CANDIDATE_CHROMOSOME_COUNT;
+        while (candidateChromosome.size() > end)
+            candidateChromosome.remove(end - 1);
+    }
+
+//    private void eliminatePhase2() {
+//        double sum = 0;
+//        double[] rates = new double[candidateChromosome.size()];
+//        for (int i = 0;i < candidateChromosome.size();i++){
+//            double rate = 1 / getDistance(candidateChromosome.get(i));
+//            sum += rate;
+//            rates[i] = rate;
+//        }
+//        Random random = new Random();
+//        for (int i = 0;i < candidateChromosome.size();i++){
+//            double ratio = rates[i] / sum;
+//            if (random.nextDouble() < ratio){
+//
+//            }
+//        }
+//    }
+
+
+
     private void recombinePhase() {
+        if (!argument.containsKey("recombine") || argument.get("recombine") == 0){
+            recombinePhase1();
+        } else if(argument.get("recombine") == 1){
+            recombinePhase2();
+        }else if (argument.get("recombine") == 2){
+            recombinePhase3();
+        }else {
+            recombinePhase1();
+        }
+    }
+    private void recombinePhase1() {
         Random rand = new Random();
-        int recombineNum = (int) (candidate_chromosome.size() * RECOMBINE_RATE
+        int recombineNum = (int) (candidateChromosome.size() * RECOMBINE_RATE
         );
         recombineNum = recombineNum - recombineNum % 3;
         Set<Integer> set = new HashSet<>();
@@ -100,30 +160,34 @@ public class GeneticAlgorithm implements Algorithm {
         int recombinesIndex = 0;
 
         while (set.size() < recombineNum) {
-            int r = rand.nextInt(candidate_chromosome.size());
+            int r = rand.nextInt(candidateChromosome.size());
             if (set.contains(r)) continue;
             recombines[recombinesIndex++] = r;
             set.add(r);
         }
-        for (int i = 0; i < recombines.length; i = i + 3) {
-            int[] chromosome = recombine(candidate_chromosome.get(recombines[i])
-                    , candidate_chromosome.get(recombines[i + 1])
-                    , candidate_chromosome.get(recombines[i + 2]));
-            candidate_chromosome.add(chromosome);
-        }
 
+        for (int i = 0; i < recombines.length; i = i + 3) {
+            int[] chromosome = recombine1(
+                    candidateChromosome.get(recombines[i]),
+                    candidateChromosome.get(recombines[i + 1]),
+                    candidateChromosome.get(recombines[i + 2]));
+
+                    candidateChromosome.add(chromosome);
+        }
     }
 
-    private int[] recombine(int[] c1, int[] c2, int[] c3) {
-        int starIndex = 1;
+    private int[] recombine1(int[] c1, int[] c2, int[] c3) {
         int[] copy1 = new int[c1.length];
         int[] copy2 = new int[c1.length];
         int[] copy3 = new int[c1.length];
         copyChromosome(c1, copy1);
         copyChromosome(c2, copy2);
         copyChromosome(c3, copy3);
-        for (int i = starIndex; i < copy1.length; i++) {
-            int gene = distanceMatrix[copy1[i]][copy1[i - 1]] > distanceMatrix[copy2[i]][copy2[i - 1]] ? (distanceMatrix[copy2[i]][copy2[i - 1]] > distanceMatrix[copy3[i]][copy3[i - 1]] ? copy3[i] : copy2[i]) : (distanceMatrix[copy1[i]][copy1[i - 1]] > distanceMatrix[copy3[i]][copy3[i - 1]] ? copy3[i] : copy1[i]);
+        for (int i = 1; i < copy1.length; i++) {
+            int gene =
+                    distanceMatrix[copy1[i]][copy1[i - 1]] > distanceMatrix[copy2[i]][copy2[i - 1]] ?
+                    (distanceMatrix[copy2[i]][copy2[i - 1]] > distanceMatrix[copy3[i]][copy3[i - 1]] ? copy3[i] : copy2[i]) :
+                    (distanceMatrix[copy1[i]][copy1[i - 1]] > distanceMatrix[copy3[i]][copy3[i - 1]] ? copy3[i] : copy1[i]);
             rotate(copy1, i, findGene(copy1, gene));
             rotate(copy2, i, findGene(copy2, gene));
             rotate(copy3, i, findGene(copy3, gene));
@@ -131,15 +195,83 @@ public class GeneticAlgorithm implements Algorithm {
         return copy1;
     }
 
+    private void recombinePhase2(){
+        Random random = new Random();
+        for (int i = 0;i < candidateChromosome.size();i += 2){
+//            if (random.nextDouble() < RECOMBINE_RATE){
+                recombine2(candidateChromosome.get(i), candidateChromosome.get(i + 1));
+//            }
+        }
+    }
+
+    private void recombine2(int[] chromosome1, int[] chromosome2){
+        int[] child1 = new int[chromosome1.length], child2 = new int[chromosome2.length];
+        int index1 = 1, index2 = 1;
+        for (int i = 1;i < chromosome1.length;i++){
+            int gene1 = chromosome1[i];
+            if (index1 < chromosome1.length && findGene(child1, gene1) == -1 &&
+                    (gene1 % 2 == 1 || findGene(child1, gene1 - 1) != -1)){
+                child1[index1++] = gene1;
+            } else{
+                child2[index2++] = gene1;
+            }
+
+            int gene2 = chromosome2[i];
+            if (index1 < chromosome1.length && findGene(child1, gene2) == -1 &&
+                    (gene2 % 2 == 1 || findGene(child1, gene2 - 1) != -1)){
+                child1[index1++] = gene2;
+            } else{
+                child2[index2++] = gene2;
+            }
+        }
+
+        copyChromosome(child1, chromosome1);
+        copyChromosome(child2, chromosome2);
+    }
+
+    private void recombinePhase3(){
+        Random random = new Random();
+        int size = candidateChromosome.size();
+        for (int i = 0;i < size;i += 2){
+            if (random.nextDouble() < RECOMBINE_RATE){
+                recombine3(candidateChromosome.get(i), candidateChromosome.get(i + 1));
+            }
+        }
+    }
+
+    private void recombine3(int[] chromosome1, int[] chromosome2){
+        int[] child1 = new int[chromosome1.length], child2 = new int[chromosome2.length];
+        int index1 = 1, index2 = 1;
+        for (int i = 1;i < chromosome1.length;i++){
+            int gene1 = chromosome1[i],gene2 = chromosome2[i];
+            if (index1 < chromosome1.length && findGene(child1, gene1) == -1 &&
+                    (gene1 % 2 == 1 || findGene(child1, gene1 - 1) != -1)){
+                child1[index1++] = gene1;
+            } else{
+                child2[index2++] = gene1;
+            }
+
+            if (index1 < chromosome1.length && findGene(child1, gene2) == -1 &&
+                    (gene2 % 2 == 1 || findGene(child1, gene2 - 1) != -1)){
+                child1[index1++] = gene2;
+            } else{
+                child2[index2++] = gene2;
+            }
+        }
+        candidateChromosome.add(child1);
+        candidateChromosome.add(child2);
+
+    }
+
     private void sortChromosomes() {
-        Collections.sort(candidate_chromosome, new Comparator<int[]>() {
+        Collections.sort(candidateChromosome, new Comparator<int[]>() {
             public int compare(int[] a, int[] b) {
                 return Double.compare(getDistance(a), getDistance(b));
             }
         });
-        double distance = getDistance(candidate_chromosome.get(0));
+        double distance = getDistance(candidateChromosome.get(0));
         if (shortestDistance > distance) {
-            copyChromosome(candidate_chromosome.get(0), bestChromosome);
+            copyChromosome(candidateChromosome.get(0), bestChromosome);
             shortestDistance = distance;
             currentSameBest = 0;
         } else
@@ -149,7 +281,7 @@ public class GeneticAlgorithm implements Algorithm {
 
     private void mutatePhase() {
         Random rand = new Random();
-        for (int[] chromosome : candidate_chromosome) {
+        for (int[] chromosome : candidateChromosome) {
             if (rand.nextDouble() < MUTATE_RATE) {
                 mutate(chromosome);
             }
@@ -157,29 +289,7 @@ public class GeneticAlgorithm implements Algorithm {
     }
 
     private void mutate(int[] chromosome) {
-
-        if (chromosome.length <= 3) return;
-        Random rand = new Random();
-        int order1 = rand.nextInt(allLocations.size() / 2),
-                order2 = rand.nextInt(allLocations.size() / 2),
-                start1 = -1,
-                start2 = -1,
-                end1 = -1,
-                end2 = -1;
-        for(int i = 1;i < chromosome.length;i++){
-            if(chromosome[i] == order1 * 2 + 1){
-                start1 = i;
-            }else if(chromosome[i] == order1 * 2 + 2){
-                end1 = i;
-            }
-            if(chromosome[i] == order2 * 2 + 1){
-                start2 = i;
-            }else if(chromosome[i] == order2 * 2 + 2){
-                end2 = i;
-            }
-        }
-        swap(chromosome, start1, start2);
-        swap(chromosome, end1, end2);
+        switchRandomTwoValidPoint(chromosome);
     }
 
 //    private void shuffle(int[] prototype) {

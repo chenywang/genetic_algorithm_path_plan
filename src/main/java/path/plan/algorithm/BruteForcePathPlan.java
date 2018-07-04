@@ -1,6 +1,7 @@
 package path.plan.algorithm;
 
 import domain.*;
+import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +11,13 @@ import static com.dada.util.CommonUtil.getAllLocations;
 /**
  * this class is for planning path in brute force way
  */
+@Data
 public class BruteForcePathPlan implements Algorithm{
+    private String name;
+    public BruteForcePathPlan(){
+        String[] algorithmName = BruteForcePathPlan.class.getName().split("\\.");
+        name = algorithmName[algorithmName.length - 1];
+    }
 
     public Path planPath(Dada dada, double[][] matrix) {
         return planPath(dada, false, matrix, false);

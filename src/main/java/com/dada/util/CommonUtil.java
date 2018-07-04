@@ -167,6 +167,18 @@ public class CommonUtil {
             to[i] = from[i];
         }
     }
+    public static List<Location> getRoute(int[] bestChromosome, List<Location> allLocations){
+        List<Location> route = new ArrayList<>();
+        for (int gene : bestChromosome) {
+            route.add(allLocations.get(gene));
+        }
+        return route;
+    }
+    public static int[] cloneChromosome(int[] chromosome){
+        int[] clone = new int[chromosome.length];
+        copyChromosome(chromosome, clone);
+        return clone;
+    }
 
     public static void JDShuffle(int[] prototype, boolean isReturn) {
         Set<Integer> set = new HashSet<>();
@@ -227,7 +239,7 @@ public class CommonUtil {
 
     public static Location getRandomLocation() {
         Random rand = new Random();
-        return new Location(121 + 3 * rand.nextDouble(), 31 + 3 * rand.nextDouble());
+        return new Location(121 + 5 * rand.nextDouble(), 31 + 5 * rand.nextDouble());
     }
 
     public static List<Location> getRandomLocationList(int size) {
@@ -300,6 +312,31 @@ public class CommonUtil {
                 set.remove(orderIndex);
             }
         }
+    }
+
+    public static void switchRandomTwoValidPoint(int[] chromosome) {
+        if (chromosome.length <= 3) return;
+        Random rand = new Random();
+        int order1 = rand.nextInt(chromosome.length / 2),
+                order2 = rand.nextInt(chromosome.length / 2),
+                start1 = -1,
+                start2 = -1,
+                end1 = -1,
+                end2 = -1;
+        for (int i = 1; i < chromosome.length; i++) {
+            if (chromosome[i] == order1 * 2 + 1) {
+                start1 = i;
+            } else if (chromosome[i] == order1 * 2 + 2) {
+                end1 = i;
+            }
+            if (chromosome[i] == order2 * 2 + 1) {
+                start2 = i;
+            } else if (chromosome[i] == order2 * 2 + 2) {
+                end2 = i;
+            }
+        }
+        swap(chromosome, start1, start2);
+        swap(chromosome, end1, end2);
     }
 
 }
